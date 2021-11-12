@@ -12,3 +12,6 @@ Program should gracefully quit at the end, using notification, that there will b
 
 For data passing between threads, create "universal (templated) queue" which you can use in all (current two) cases.
 Threads are not allowed to block each other executing its task, except in a moment when pushing / popping data in exchange queue.
+
+# compiling instruction
+g++ threads_concurrency.cpp -o threads -std=c++2a -pthread
