@@ -6,12 +6,15 @@
 #include <vector>
 #include <chrono>
 #include <random>
+#include <condition_variable>
 
 using namespace std;
 
 std::string notificationMsg;
 std::queue<int>shared_queue;
 std::mutex mtx;
+std::condition_variable cv;
+bool processed = false;
 
 int average(std::vector<int> const& v){
     if(v.empty()) return 0;
@@ -101,7 +104,6 @@ void dataProcessor() {
         if (!shared_queue.empty()) {
             if (shared_queue.front() == -1) {
                 while (!shared_queue.empty()) shared_queue.pop();
-                shared_queue.push(-2);
                 for (auto i: procvec) {
                     shared_queue.push(i);
                 }
@@ -122,22 +124,22 @@ void dataProcessor() {
         cout << i << " ";
     }
     cout << endl;
+    processed = true;
+    cv.notify_one();
 }
 
 void dataAggregator() {
+    // wait for signal from dataProcessor
+    {
+        std::unique_lock<std::mutex> lk(mtx);
+        cv.wait(lk, []{return processed;});
+    }
     vector<int> aggvec;
-    while (true) {
-        if (!shared_queue.empty()) {
-            if (shared_queue.front() == -2) {
-                shared_queue.pop();
-                while (!shared_queue.empty()) {
-                    aggvec.push_back(shared_queue.front());
-                    shared_queue.pop();
-                }
-                break;
-            }
+    if (!shared_queue.empty()) {
+        while (!shared_queue.empty()) {
+            aggvec.push_back(shared_queue.front());
+            shared_queue.pop();
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     cout << "average of averages: " << average(aggvec) << endl;
